@@ -1,6 +1,6 @@
 {
   "name": "google-serper-local",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Professional Google SERP Tracker, PAA Miner, and Site Auditor for SEO Specialists.",
   "author": "Bahadir Egdir",
   "main": "main.mjs",

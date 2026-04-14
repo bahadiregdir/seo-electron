@@ -74,33 +74,68 @@ async function extractResults(page, startingRank, seenLinks) {
     const items = [];
     const internalSeen = new Set(linksSoFar);
     
-    // Better selectors based on 2024/2025 Google DOM
+    // Comprehensive selectors for 2024/2025 Google DOM
+    // div.g: Classic organic
+    // div.MjjYud: Modern grouping container
+    // div.tF2Cxc: Standard organic result container
+    // .Ww6BMe: Sometimes used in mobile/new layouts
     const searchResults = document.querySelectorAll('div.g, div.MjjYud, div.tF2Cxc');
     
     let currentRank = startRank;
     searchResults.forEach(el => {
+      // Find title and link within the container
       const titleEl = el.querySelector('h3');
-      const linkEl = el.querySelector('a[data-ved], a.zReHs, div.yuRUbf a');
-      const snippetEl = el.querySelector('div.VwiC3b, .VwiC3b, .yXK7ab');
+      const linkEl = el.querySelector('a[href^="http"]:not([href*="google.com/search"])');
+      const snippetEl = el.querySelector('div.VwiC3b, .VwiC3b, .yXK7ab, .Uo7Z1, .MU4D7c');
 
       if (titleEl && linkEl) {
         const href = linkEl.href;
-        if (!href || href.startsWith('https://webcache') || href.startsWith('https://translate')) return;
+        // Filter out junk
+        if (!href || 
+            href.includes('google.com/search') || 
+            href.startsWith('https://webcache') || 
+            href.startsWith('https://translate') ||
+            href.includes('/aclk?') // Skip ads just in case
+        ) return;
         
         if (internalSeen.has(href)) return;
         internalSeen.add(href);
 
         items.push({
           rank: currentRank++,
-          title: titleEl.innerText,
+          title: titleEl.innerText.trim(),
           link: href,
-          snippet: snippetEl ? snippetEl.innerText : '',
+          snippet: snippetEl ? snippetEl.innerText.trim() : '',
           domain: new URL(href).hostname
         });
       }
     });
     return items;
   }, startingRank, Array.from(seenLinks));
+}
+
+// Helper to scroll and load results for infinite scroll
+async function loadResultsToDepth(page, depth) {
+  let resultsCount = 0;
+  let scrollAttempts = 0;
+  const maxAttempts = 20;
+
+  while (resultsCount < depth && scrollAttempts < maxAttempts) {
+    resultsCount = await page.evaluate(() => document.querySelectorAll('div.g, div.MjjYud, div.tF2Cxc').length);
+    
+    if (resultsCount < depth) {
+      await page.evaluate(() => window.scrollBy(0, window.innerHeight));
+      await delay(1500 + Math.random() * 1000);
+      
+      // Try to click "More results" or "Show more" if present
+      const moreBtn = await page.$('a[aria-label="More results"], span[aria-label="More results"], .GN77nd');
+      if (moreBtn) {
+        await moreBtn.click();
+        await delay(2000);
+      }
+      scrollAttempts++;
+    }
+  }
 }
 
 // Helper to check for CAPTCHA
@@ -130,7 +165,7 @@ ipcMain.handle('run-scraper', async (event, { keyword, device, country, language
         '--disable-infobars',
         '--window-size=1440,900',
         '--start-maximized',
-        '--lang=en-US,en;q=0.9',
+        `--lang=${language === 'en' ? 'en-US,en' : 'tr-TR,tr'}`,
       ],
       defaultViewport: null,
       ignoreDefaultArgs: ['--enable-automation']
@@ -139,80 +174,56 @@ ipcMain.handle('run-scraper', async (event, { keyword, device, country, language
     const page = await browser.newPage();
 
     if (device === 'mobile') {
-      await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1');
-      await page.setViewport({ width: 375, height: 812, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+      await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1');
+      await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
     } else {
-      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36');
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
       await page.setViewport({ width: 1440, height: 900 });
     }
 
-    const allResults = [];
-    const seenLinks = new Set();
-    const pagesToScrape = Math.ceil(depth / 10);
+    // Use &pws=0 for unbiased and &udm=14 for Clean Web view
+    const initialUrl = `https://www.google.com/search?q=${encodeURIComponent(keyword)}&gl=${country}&hl=${language}&pws=0&udm=14`;
+    
+    await page.goto(initialUrl, { waitUntil: 'networkidle2' });
 
-    for (let i = 0; i < pagesToScrape; i++) {
-      const start = i * 10;
-
-      if (i === 0) {
-        const homeUrl = `https://www.google.com/?gl=${country}&hl=${language}`;
-        await page.goto(homeUrl, { waitUntil: 'networkidle2' });
-        try {
-          const consentButton = await page.$('button[aria-label="Accept all"], button[aria-label="Tümünü kabul et"], #L2AGLb');
-          if (consentButton) {
-            await consentButton.click();
-            await delay(1000 + Math.random() * 1000);
-          }
-        } catch (e) {}
-
-        const searchInput = await page.waitForSelector('textarea[name="q"], input[name="q"]', { timeout: 10000 });
-        await searchInput.click();
-        for (const char of keyword) {
-          await page.keyboard.sendCharacter(char);
-          await delay(50 + Math.random() * 100);
-        }
-        await page.keyboard.press('Enter');
-      } else {
-        await delay(2000 + Math.random() * 3000);
-        const nextUrl = `https://www.google.com/search?q=${encodeURIComponent(keyword)}&gl=${country}&hl=${language}&start=${start}`;
-        await page.goto(nextUrl, { waitUntil: 'networkidle2' });
+    // Handle initial consent if needed
+    try {
+      const consentButton = await page.$('button[aria-label="Accept all"], button[aria-label="Tümünü kabul et"], #L2AGLb');
+      if (consentButton) {
+        await consentButton.click();
+        await delay(1000);
       }
+    } catch (e) {}
 
-      await Promise.race([
-        page.waitForSelector('#search, div.g', { timeout: 30000 }),
-        page.waitForSelector('#captcha-form, .g-recaptcha', { timeout: 30000 })
-      ]).catch(() => {});
-
-      const isCaptcha = await checkForCaptcha(page);
-      if (isCaptcha) {
-        if (!headed) {
-          await browser.close();
-          return { success: false, error: 'CAPTCHA_DETECTED' };
-        }
-        await page.waitForSelector('#search, #res, #botstuff', { timeout: 300000 }).catch(() => {});
+    const isCaptcha = await checkForCaptcha(page);
+    if (isCaptcha) {
+      if (!headed) {
+        await browser.close();
+        return { success: false, error: 'CAPTCHA_DETECTED' };
       }
-
-      const pageResults = await extractResults(page, allResults.length + 1, seenLinks);
-      pageResults.forEach(r => {
-        allResults.push(r);
-        seenLinks.add(r.link);
-      });
-
-      if (allResults.length >= depth) break;
+      // Wait for manual solve in headed mode
+      await page.waitForSelector('#search, #res, #botstuff', { timeout: 300000 }).catch(() => {});
     }
+
+    // Scroll to load deep results
+    if (depth > 10) {
+      await loadResultsToDepth(page, depth);
+    }
+
+    const seenLinks = new Set();
+    const allResults = await extractResults(page, 1, seenLinks);
 
     if (!headed || allResults.length > 0) {
       await browser.close();
     }
 
-    db.saveScan({ keyword, device, country, language, targetDomain }, allResults);
-    return { success: true, results: allResults };
+    db.saveScan({ keyword, device, country, language, targetDomain }, allResults.slice(0, depth));
+    return { success: true, results: allResults.slice(0, depth) };
 
   } catch (error) {
     if (browser) await browser.close();
     return { success: false, error: error.message };
   }
-});
-
 // --- Keyword Explorer Logic ---
 ipcMain.handle('run-keyword-explorer', async (event, { keyword, language }) => {
   try {
@@ -255,16 +266,24 @@ ipcMain.handle('run-keyword-explorer', async (event, { keyword, language }) => {
 ipcMain.handle('run-paa-miner', async (event, { keyword, country, language, headed }) => {
   let browser;
   try {
-    const userDataDir = path.join(__dirname, '.user-data');
+    const userDataDir = path.join(__dirname, '.user-data-paa');
     browser = await puppeteer.launch({ 
       headless: !headed, 
       userDataDir,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox',
+        '--disable-blink-features=AutomationControlled',
+        `--lang=${language === 'en' ? 'en-US,en' : 'tr-TR,tr'}`
+      ]
     });
     const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36');
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
+    await page.setViewport({ width: 1440, height: 900 });
     
-    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(keyword)}&gl=${country}&hl=${language}`;
+    // Note: We do NOT use udm=14 here because udm=14 strips PAA boxes.
+    // We only use pws=0 for unbiased results.
+    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(keyword)}&gl=${country}&hl=${language}&pws=0`;
     await page.goto(searchUrl, { waitUntil: 'networkidle2' });
 
     await page.waitForSelector('div[data-q]', { timeout: 10000 }).catch(() => {});

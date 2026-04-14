@@ -74,9 +74,21 @@ function App() {
   const [auditUrl, setAuditUrl] = useState('');
   const [auditResults, setAuditResults] = useState(null);
 
+  // --- Update State ---
+  const [updateStatus, setUpdateStatus] = useState(null);
+
   useEffect(() => {
     if (activeTab === 'history') loadHistory();
   }, [activeTab]);
+
+  useEffect(() => {
+    if (window.electronAPI.onUpdateAvailable) {
+      window.electronAPI.onUpdateAvailable(() => setUpdateStatus('available'));
+    }
+    if (window.electronAPI.onUpdateDownloaded) {
+      window.electronAPI.onUpdateDownloaded(() => setUpdateStatus('downloaded'));
+    }
+  }, []);
 
   const loadHistory = async () => {
     try {
@@ -471,6 +483,24 @@ function App() {
         .details-mini { flex: 1; overflow: hidden; }
         .title-mini { font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.95rem; }
         .link-mini { font-size: 0.75rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; }
+
+        .update-notification {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          padding: 15px 20px;
+          z-index: 1000;
+          animation: slideIn 0.3s ease-out;
+          border-left: 4px solid var(--warning);
+        }
+
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
       `}</style>
 
       {modalData && (
@@ -507,6 +537,22 @@ function App() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* --- UPDATE NOTIFICATION --- */}
+      {updateStatus && (
+        <div className="update-notification glass">
+          <Zap size={20} color="var(--warning)" />
+          <span>
+            {updateStatus === 'available' ? 'Yeni versiyon indiriliyor...' : 'Yeni versiyon hazır!'}
+          </span>
+          {updateStatus === 'downloaded' && (
+            <button className="btn-primary" onClick={() => window.electronAPI.quitAndInstall()} style={{ padding: '5px 15px', fontSize: '0.8rem' }}>
+              Yükle ve Yeniden Başlat
+            </button>
+          )}
+          <button className="btn-icon" onClick={() => setUpdateStatus(null)}><X size={16} /></button>
         </div>
       )}
     </div>

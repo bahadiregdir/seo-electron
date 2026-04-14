@@ -17,5 +17,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Site Auditor
   runSiteAuditor: (data) => ipcRenderer.invoke('run-site-auditor', data),
-  getAuditHistory: () => ipcRenderer.invoke('get-audit-history')
+  getAuditHistory: () => ipcRenderer.invoke('get-audit-history'),
+
+  // Updates
+  onUpdateAvailable: (callback) => ipcRenderer.on('update_available', callback),
+  onUpdateDownloaded: (callback) => ipcRenderer.on('update_downloaded', callback),
+  quitAndInstall: () => ipcRenderer.invoke('quit-and-install')
 });
