@@ -58,7 +58,8 @@
       {
         "provider": "github",
         "owner": "bahadiregdir",
-        "repo": "seo-electron"
+        "repo": "seo-electron",
+        "draft": false
       }
     ],
     "dmg": {
