@@ -1,0 +1,68 @@
+{
+  "name": "google-serper-local",
+  "version": "1.0.0",
+  "main": "main.mjs",
+  "type": "module",
+  "scripts": {
+    "vite": "vite",
+    "electron": "NODE_ENV=development PUPPETEER_CACHE_DIR=./.puppeteer-cache electron .",
+    "dev": "concurrently \"npm run vite\" \"wait-on http://localhost:5173 && npm run electron\"",
+    "build": "vite build && electron-builder",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.9.0",
+    "lucide-react": "^0.469.0",
+    "puppeteer": "^24.3.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "axios": "^1.6.2",
+    "fast-xml-parser": "^4.3.2"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.2.1",
+    "electron-builder": "^24.13.3",
+    "vite": "^6.0.3"
+  },
+  "build": {
+    "appId": "com.gamevgames.seo-suite",
+    "productName": "SEO Stealth Suite",
+    "directories": {
+      "output": "out"
+    },
+    "files": [
+      "dist/**/*",
+      "main.mjs",
+      "preload.mjs",
+      "database.mjs",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/icon.icns"
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 410,
+          "y": 150,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 130,
+          "y": 150,
+          "type": "file"
+        }
+      ]
+    }
+  }
+}
