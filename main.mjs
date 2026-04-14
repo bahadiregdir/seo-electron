@@ -224,6 +224,8 @@ ipcMain.handle('run-scraper', async (event, { keyword, device, country, language
     if (browser) await browser.close();
     return { success: false, error: error.message };
   }
+});
+
 // --- Keyword Explorer Logic ---
 ipcMain.handle('run-keyword-explorer', async (event, { keyword, language }) => {
   try {
