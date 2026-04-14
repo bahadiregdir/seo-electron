@@ -1,6 +1,8 @@
 {
   "name": "google-serper-local",
-  "version": "1.0.0",
+  "version": "1.0.2",
+  "description": "Professional Google SERP Tracker, PAA Miner, and Site Auditor for SEO Specialists.",
+  "author": "Bahadir Egdir",
   "main": "main.mjs",
   "type": "module",
   "scripts": {
@@ -8,25 +10,29 @@
     "electron": "NODE_ENV=development PUPPETEER_CACHE_DIR=./.puppeteer-cache electron .",
     "dev": "concurrently \"npm run vite\" \"wait-on http://localhost:5173 && npm run electron\"",
     "build": "vite build && electron-builder",
+    "release": "npm run build && electron-builder --publish always",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "axios": "^1.6.2",
     "better-sqlite3": "^12.9.0",
+    "electron-updater": "^6.1.7",
+    "fast-xml-parser": "^4.3.2",
     "lucide-react": "^0.469.0",
     "puppeteer": "^24.3.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "axios": "^1.6.2",
-    "fast-xml-parser": "^4.3.2"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.3",
     "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.2.1",
     "electron": "^33.2.1",
     "electron-builder": "^24.13.3",
-    "vite": "^6.0.3"
+    "vite": "^6.0.3",
+    "wait-on": "^9.0.5"
   },
   "build": {
     "appId": "com.gamevgames.seo-suite",
@@ -46,9 +52,15 @@
       "category": "public.app-category.developer-tools",
       "target": [
         "dmg"
-      ],
-      "icon": "assets/icon.icns"
+      ]
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "bahadiregdir",
+        "repo": "seo-electron"
+      }
+    ],
     "dmg": {
       "contents": [
         {
