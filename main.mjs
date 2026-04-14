@@ -3,6 +3,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import pkgUpdate from 'electron-updater';
 const { autoUpdater } = pkgUpdate;
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
@@ -12,6 +13,23 @@ import * as db from './database.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Helper to find Chrome/Chromium executable in production or development
+async function getChromePath() {
+  const possiblePaths = [
+    // Standard macOS Google Chrome path
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    // Microsoft Edge (as backup Chromium)
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    // Local Puppeteer cache (Development)
+    path.join(__dirname, '.puppeteer-cache', 'chrome', 'mac_arm-121.0.6167.85', 'chrome-mac-arm64', 'Google Chrome for Testing.app', 'Contents/MacOS/Google Chrome for Testing')
+  ];
+
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null; // Let Puppeteer try its default if nothing found
+}
 
 puppeteer.use(StealthPlugin());
 
@@ -154,9 +172,12 @@ ipcMain.handle('run-scraper', async (event, { keyword, device, country, language
   let browser;
   try {
     const userDataDir = path.join(__dirname, '.user-data');
+    const executablePath = await getChromePath();
+    
     browser = await puppeteer.launch({
       headless: !headed,
       userDataDir,
+      executablePath,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -269,9 +290,12 @@ ipcMain.handle('run-paa-miner', async (event, { keyword, country, language, head
   let browser;
   try {
     const userDataDir = path.join(__dirname, '.user-data-paa');
+    const executablePath = await getChromePath();
+
     browser = await puppeteer.launch({ 
       headless: !headed, 
       userDataDir,
+      executablePath,
       args: [
         '--no-sandbox', 
         '--disable-setuid-sandbox',

@@ -1,6 +1,6 @@
 {
   "name": "google-serper-local",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Professional Google SERP Tracker, PAA Miner, and Site Auditor for SEO Specialists.",
   "author": "Bahadir Egdir",
   "main": "main.mjs",
@@ -10,7 +10,7 @@
     "electron": "NODE_ENV=development PUPPETEER_CACHE_DIR=./.puppeteer-cache electron .",
     "dev": "concurrently \"npm run vite\" \"wait-on http://localhost:5173 && npm run electron\"",
     "build": "vite build && electron-builder",
-    "release": "npm run build && electron-builder --publish always",
+    "release": "export $(grep GH_TOKEN .env) && npm run build && electron-builder --publish always",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
@@ -36,7 +36,7 @@
   },
   "build": {
     "appId": "com.gamevgames.seo-suite",
-    "productName": "SEO Stealth Suite",
+    "productName": "SEO Stealth Suite - v1.0.5",
     "directories": {
       "output": "out"
     },
