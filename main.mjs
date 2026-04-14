@@ -1,4 +1,7 @@
+// SEO Stealth Suite - v1.0.0
 import { app, BrowserWindow, ipcMain } from 'electron';
+import pkgUpdate from 'electron-updater';
+const { autoUpdater } = pkgUpdate;
 import path from 'path';
 import { fileURLToPath } from 'url';
 import puppeteer from 'puppeteer-extra';
@@ -35,7 +38,24 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  if (process.env.NODE_ENV !== 'development') {
+    autoUpdater.checkForUpdatesAndNotify();
+  }
+});
+
+// Update Events
+autoUpdater.on('update-available', () => {
+  mainWindow.webContents.send('update_available');
+});
+autoUpdater.on('update-downloaded', () => {
+  mainWindow.webContents.send('update_downloaded');
+});
+
+ipcMain.handle('quit-and-install', () => {
+  autoUpdater.quitAndInstall();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
